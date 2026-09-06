@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VEX V5 编程教学 · Clawbot 仿真</title>
+<style>
+  :root{
+    --bg:#07090f; --panel:#0b0e16; --panel2:#06080e; --line:rgba(255,255,255,.07);
+    --txt:#e6eaf2; --dim:rgba(255,255,255,.42); --accent:#8fd0f5; --red:#f07178;
+    --amber:#e6b450; --green:#7fd8a8;
+    --lh:21px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(1100px 640px at 78% -12%, rgba(143,208,245,.045), transparent 62%), var(--bg);
+    color:var(--txt);
+    font:14px/1.6 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+    display:flex;flex-direction:column;overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* ---------- 顶栏 ---------- */
+  header{
+    height:52px;flex:none;display:flex;align-items:center;gap:12px;
+    padding:0 18px;background:rgba(9,12,19,.9);border-bottom:1px solid rgba(255,255,255,.06);
+    position:relative;
+  }
+  header::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:1px;pointer-events:none;
+    background:linear-gradient(90deg,transparent 6%,rgba(143,208,245,.30) 50%,transparent 94%);
+  }
+  .logo{font-weight:300;letter-spacing:.30em;white-space:nowrap;font-size:13.5px;color:#f2f5fa}
+  .sp{flex:1}
+  /* 顶栏中部组：关卡 / 训练 / 保存（绝对居中，让右上角只留运行相关按钮） */
+  .hb-center{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    display:flex;align-items:center;gap:10px;z-index:6;
+  }
+  .btn{
+    background:transparent;border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.72);
+    border-radius:2px;padding:7px 18px;cursor:pointer;font-size:11.5px;
+    letter-spacing:.24em;font-weight:400;white-space:nowrap;
+    transition:border-color .2s,color .2s,background .2s,box-shadow .2s;
+  }
+  .btn:hover{border-color:rgba(255,255,255,.55);color:#fff;box-shadow:0 0 16px rgba(255,255,255,.05)}
+  .btn.primary{border-color:rgba(143,208,245,.40);color:#cfeaff;background:rgba(143,208,245,.05)}
+  .btn.primary:hover{border-color:rgba(143,208,245,.85);color:#fff;background:rgba(143,208,245,.09);box-shadow:0 0 20px rgba(143,208,245,.10)}
+  .btn.primary:disabled{border-color:rgba(255,255,255,.08);color:rgba(255,255,255,.26);background:transparent;cursor:not-allowed;box-shadow:none}
+  .btn.danger{border-color:rgba(240,113,120,.38);color:#ffb4b8}
+  .btn.danger:hover{border-color:rgba(240,113,120,.85);color:#fff;background:rgba(240,113,120,.08);box-shadow:0 0 18px rgba(240,113,120,.08)}
+  .btn.practice{border-color:rgba(127,216,168,.40);color:#b5edd0}
+  .btn.practice:hover{border-color:rgba(127,216,168,.85);color:#fff;background:rgba(127,216,168,.09);box-shadow:0 0 20px rgba(127,216,168,.10)}
+  .btn.practice.active{border-color:rgba(127,216,168,.9);color:#fff;background:rgba(127,216,168,.16)}
+  .btn.reset{border-color:rgba(255,209,128,.40);color:#ffe0a3}
+  .btn.reset:hover{border-color:rgba(255,209,128,.85);color:#fff;background:rgba(255,209,128,.09);box-shadow:0 0 20px rgba(255,209,128,.10)}
+  .level-select{position:relative;display:inline-block}
+  .level-btn{
+    background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.72);
+    border-radius:2px;padding:6px 14px;font-size:11px;letter-spacing:.06em;cursor:pointer;
+    outline:none;transition:border-color .2s,color .2s,background .2s;
+  }
+  .level-btn:hover{border-color:rgba(255,255,255,.55);color:#fff}
+  .level-menu{
+    position:absolute;right:0;top:calc(100% + 6px);min-width:230px;z-index:80;
+    background:rgba(20,24,33,.97);border:1px solid rgba(255,255,255,.16);border-radius:2px;
+    padding:5px;box-shadow:0 10px 28px rgba(0,0,0,.55);
+  }
+  .level-menu[hidden]{display:none}
+  .level-item{
+    padding:8px 12px;font-size:11.5px;letter-spacing:.1em;color:rgba(255,255,255,.7);
+    cursor:pointer;border-radius:2px;white-space:nowrap;transition:background .15s,color .15s;
+  }
+  .level-item:hover{background:rgba(255,255,255,.07);color:#fff}
+  .level-item.active{color:#9fe8ff}
+  #practiceBanner{
+    position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);
+    font-size:56px;font-weight:700;letter-spacing:.06em;color:#fff;
+    text-shadow:0 0 40px rgba(127,216,168,.55);
+    pointer-events:none;user-select:none;z-index:30;opacity:0;white-space:nowrap;
+  }
+  #practiceBanner.show{animation:practicePop 2s cubic-bezier(.22,.9,.26,1) forwards}
+  #congratsWrap{
+    position:absolute;top:42%;left:50%;transform:translate(-50%,-50%);
+    text-align:center;pointer-events:none;user-select:none;z-index:30;opacity:0;
+  }
+  #congratsWrap.show{animation:congratsPop 3.4s cubic-bezier(.22,.9,.26,1) forwards}
+  #congratsBanner{
+    font-size:50px;font-weight:700;letter-spacing:.02em;white-space:nowrap;
+    background:linear-gradient(90deg,#ff5a5a,#ffa64d,#ffd94d,#5aff9a,#5ac8ff,#b45aff,#ff5ad2);
+    background-size:200% 100%;
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;color:transparent;
+  }
+  #meritToast{
+    margin-top:12px;font-size:20px;font-weight:600;letter-spacing:.08em;
+    color:#ffd94d;text-shadow:0 0 18px rgba(255,217,77,.55);
+  }
+  @keyframes practicePop{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.55);filter:blur(6px)}
+    22%{opacity:1;transform:translate(-50%,-50%) scale(1.06);filter:blur(0)}
+    36%{transform:translate(-50%,-50%) scale(1)}
+    74%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+    100%{opacity:0;transform:translate(-50%,-50%) scale(1.18);filter:blur(4px)}
+  }
+  @keyframes congratsPop{ /* 弹出后全程清晰（无模糊），保持约 3 秒再淡出 */
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.6)}
+    7%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}
+    13%{transform:translate(-50%,-50%) scale(1)}
+    88%{opacity:1;transform:translate(-50%,-50%) scale(1)}
+    100%{opacity:0;transform:translate(-50%,-50%) scale(1.03)}
+  }
+  /* 彩带纸片 */
+  .confetti{
+    position:fixed;top:-24px;width:9px;height:15px;z-index:135;pointer-events:none;
+    border-radius:1px;animation:confettiFall 3.2s ease-in forwards;
+  }
+  @keyframes confettiFall{
+    0%{transform:translateY(0) translateX(0) rotate(0);opacity:1}
+    100%{transform:translateY(110vh) translateX(var(--tx,0)) rotate(var(--rot,720deg));opacity:.6}
+  }
+  /* 上方信息栏 merit 徽章 */
+  .merit-badge{
+    display:flex;align-items:center;gap:7px;padding:5px 14px;border-radius:2px;
+    border:1px solid rgba(255,217,77,.35);background:rgba(255,217,77,.06);
+    color:#ffd94d;font-size:12px;letter-spacing:.06em;white-space:nowrap;
+    transition:box-shadow .3s ease,transform .3s ease;
+  }
+  .merit-badge.bump{box-shadow:0 0 18px rgba(255,217,77,.35);transform:scale(1.06)}
+  .merit-badge .mb-icon{font-size:15px;line-height:1}
+  .merit-badge .mb-val{font-weight:600;font-variant-numeric:tabular-nums}
+  .merit-badge .mb-label{color:rgba(255,217,77,.6);font-size:10.5px;letter-spacing:.14em}
+  .chip{
+    font-size:10.5px;padding:4px 12px;border-radius:2px;border:1px solid rgba(255,255,255,.12);
+    color:var(--dim);white-space:nowrap;letter-spacing:.20em;
+  }
+  .chip.ok{color:#b5edd0;border-color:rgba(127,216,168,.32)}
+  .chip.bad{color:#ffb4b8;border-color:rgba(240,113,120,.32)}
+  .chip.run{color:#bfe9ff;border-color:rgba(143,208,245,.32)}
+  /* ---------- 主体 ---------- */
+  main{flex:1;display:flex;min-height:0}
+  #editorPanel{
+    width:46%;min-width:430px;flex:none;display:flex;flex-direction:column;
+    border-right:1px solid rgba(255,255,255,.06);background:var(--panel);min-height:0;
+    position:relative;
+  }
+  #editorWrap{flex:1;min-height:120px;display:flex;background:var(--panel2);position:relative}
+  #gutter{
+    width:46px;flex:none;overflow:hidden;position:relative;
+    border-right:1px solid rgba(255,255,255,.05);background:var(--panel2);
+  }
+  #gutInner{position:absolute;top:0;left:0;right:0;will-change:transform}
+  .gn{
+    height:var(--lh);line-height:var(--lh);
+    font:12px/var(--lh) Menlo,Consolas,monospace;color:rgba(255,255,255,.20);text-align:center;position:relative;
+  }
+  .gn i{position:absolute;left:5px;top:0;font-style:normal;color:var(--red);font-weight:700}
+  .gn.ge{color:#ffb4b8;background:rgba(240,113,120,.09)}
+  .gn.flash{background:rgba(230,180,80,.22)}
+  #codeWrap{flex:1;position:relative;min-width:0;overflow:hidden}
+  #hl{
+    position:absolute;top:0;left:0;right:0;margin:0;padding:12px 16px;
+    /* 注意：高度必须由内容撑开，不能把上下都钉死在容器上 ——
+       滚动同步用 transform 移动整个元素，box 高度=内容高度才能和
+       textarea 的 scrollTop 对齐，否则滚动后高亮层会移出可视区（代码隐形） */
+    font:13px/var(--lh) "SF Mono",Menlo,Consolas,monospace;
+    white-space:pre;overflow:hidden;border:0;outline:none;tab-size:4;
+    pointer-events:none;color:var(--txt);background:transparent;
+    will-change:transform;
+  }
+  #code{
+    position:absolute;inset:0;margin:0;padding:12px 16px;
+    font:13px/var(--lh) "SF Mono",Menlo,Consolas,monospace;
+    white-space:pre;overflow:auto;border:0;outline:none;tab-size:4;
+    background:transparent;color:transparent;caret-color:#9fe8ff;resize:none;
+    -webkit-text-fill-color:transparent;z-index:2;
+  }
+  #code::selection{background:rgba(143,208,245,.20);-webkit-text-fill-color:transparent}
+  #hl .el{background:rgba(240,113,120,.09);border-bottom:1px dashed rgba(240,113,120,.55);border-radius:1px}
+  #hl .l.flash{background:rgba(230,180,80,.18)}
+  .tk-com{color:#5d6b62;font-style:italic}
+  .tk-str{color:#e8c98a}
+  .tk-pre{color:#c3a2e8}
+  .tk-num{color:#e8a48c}
+  .tk-kw{color:#8fd0f5}
+  .tk-type{color:#8fe3d0}
+  .tk-api{color:#ffffff;font-weight:500}
+  .tk-fn{color:#ffe0a3}
+  .tk-pun{color:rgba(255,255,255,.28)}
+  /* ---------- 问题面板 ---------- */
+  #errPanel{
+    flex:none;height:32%;min-height:150px;max-height:300px;display:flex;flex-direction:column;
+    border-top:1px solid rgba(255,255,255,.06);background:rgba(9,12,19,.82);
+  }
+  #errHead{
+    flex:none;height:34px;line-height:34px;padding:0 14px;font-size:11px;color:rgba(255,255,255,.40);
+    border-bottom:1px solid rgba(255,255,255,.05);display:flex;gap:10px;align-items:center;
+    letter-spacing:.16em;
+  }
+  #errHead b{color:rgba(255,255,255,.85);font-weight:400;letter-spacing:.22em}
+  #errHead .hint{margin-left:auto;color:rgba(255,255,255,.22);letter-spacing:.08em}
+  #errList{flex:1;overflow:auto;padding:6px 0}
+  .err-item{
+    display:flex;gap:10px;align-items:flex-start;padding:5px 14px;cursor:pointer;
+    font-size:12.5px;border-left:1px solid transparent;
+  }
+  .err-item:hover{background:rgba(143,208,245,.05);border-left-color:rgba(143,208,245,.6)}
+  .err-item .e-ic{color:var(--red);font-weight:500;flex:none}
+  .err-item.warning .e-ic{color:var(--amber)}
+  .err-item .e-line{
+    flex:none;color:rgba(255,255,255,.34);font-family:Menlo,Consolas,monospace;font-size:11px;padding-top:1px;
+  }
+  .err-item .e-msg{color:rgba(255,255,255,.82);word-break:break-all}
+  .err-item.warning .e-msg{color:#c9b27a}
+  .err-empty{color:rgba(127,216,168,.75);padding:10px 14px;font-size:12px;letter-spacing:.06em}
+  /* ---------- 3D 场景 ---------- */
+  #scenePanel{
+    flex:1;min-width:0;position:relative;background:#04060b;overflow:hidden;cursor:grab;
+  }
+  #scenePanel canvas{display:block}
+  /* 超声波传感器实时读数（左上角） */
+  #sonarHud{
+    position:absolute;top:14px;left:16px;pointer-events:none;user-select:none;
+    background:rgba(4,6,11,.66);border:1px solid rgba(143,208,245,.20);border-radius:2px;
+    padding:7px 14px;display:flex;align-items:baseline;gap:10px;
+  }
+  #sonarHud .sh-label{
+    font-size:10px;color:rgba(255,255,255,.42);letter-spacing:.24em;white-space:nowrap;
+  }
+  #sonarHud .sh-value{
+    font:600 17px/1 "SF Mono",Menlo,Consolas,monospace;color:#9fe8ff;min-width:88px;
+    text-align:right;letter-spacing:.04em;font-variant-numeric:tabular-nums;
+  }
+  #sonarHud .sh-unit{font-size:10px;color:rgba(255,255,255,.35);letter-spacing:.14em}
+  #sonarHud .sh-bar{
+    position:relative;width:90px;height:3px;background:rgba(255,255,255,.10);border-radius:2px;overflow:hidden;align-self:center;
+  }
+  #sonarHud .sh-bar i{
+    position:absolute;right:0;top:0;bottom:0;width:100%;border-radius:2px;
+    background:linear-gradient(90deg,rgba(143,208,245,.9),rgba(143,208,245,.35));
+    transition:width .12s linear;
+  }
+  #sonarHud.near .sh-bar i{background:linear-gradient(90deg,rgba(240,113,120,.95),rgba(240,113,120,.4))}
+  #sonarHud.near .sh-value{color:#ffb4b8}
+  #console{
+    position:absolute;right:14px;bottom:14px;width:min(400px,46%);max-height:160px;
+    overflow:auto;font:11px/1.7 Menlo,Consolas,monospace;color:#9fd8c8;
+    background:rgba(4,6,11,.84);border:1px solid rgba(255,255,255,.08);
+    border-radius:2px;padding:9px 12px;pointer-events:auto;
+  }
+  #console .cl{white-space:pre-wrap;word-break:break-all}
+  /* ---------- AI 展开按钮 ---------- */
+  #editorPanel{position:relative}
+  #btnAI{
+    position:absolute;top:10px;right:-14px;z-index:10;
+    width:28px;height:56px;border:1px solid rgba(255,255,255,.12);border-left:none;
+    background:rgba(9,12,19,.92);color:var(--accent);cursor:pointer;border-radius:0 2px 2px 0;
+    font-size:15px;line-height:1;padding:0;transition:background .2s,color .2s;
+    display:flex;align-items:center;justify-content:center;
+  }
+  #btnAI:hover{background:rgba(143,208,245,.08)}
+  #btnAI.open{background:rgba(143,208,245,.14);color:#fff}
+  #btnAI .arr{transition:transform .25s;display:inline-block}
+  #btnAI.open .arr{transform:rotate(180deg)}
+  /* ---------- AI 面板（覆盖在场地左侧上方，不挤压场地布局） ---------- */
+  #aiPanel{
+    position:absolute;top:0;bottom:0;left:0;z-index:6;
+    width:min(38%,460px);min-width:300px;display:flex;flex-direction:column;
+    background:rgba(8,10,16,.97);border-right:1px solid rgba(255,255,255,.08);
+    box-shadow:18px 0 46px rgba(0,0,0,.55);min-height:0;
+  }
+  #aiPanel[hidden]{display:none}
+  /* 场地模糊态：AI 面板展开时 */
+  #scenePanel.blurred > :not(#aiPanel):not(#sceneVeil){
+    filter:blur(6px) brightness(.55) saturate(.75);
+    pointer-events:none;user-select:none;
+  }
+  #sceneVeil{
+    position:absolute;inset:0;z-index:5;background:rgba(2,4,10,.30);
+  }
+  #sceneVeil[hidden]{display:none}
+  #aiHead{
+    flex:none;min-height:52px;padding:8px 14px;font-size:12px;
+    border-bottom:1px solid rgba(255,255,255,.06);display:flex;gap:10px;align-items:center;
+  }
+  #aiClose{
+    background:none;border:0;color:rgba(255,255,255,.35);font-size:22px;font-weight:200;cursor:pointer;padding:0 6px;line-height:1;
+  }
+  #aiClose:hover{color:var(--red)}
+  #aiInputWrap{flex:none;padding:12px 14px 10px;border-top:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;gap:10px}
+  #aiBottomRow{display:flex;gap:10px}
+  #aiBottomRow .btn{flex:1}
+  #aiReq{
+    width:100%;height:72px;resize:vertical;background:#07090f;color:var(--txt);
+    border:1px solid rgba(255,255,255,.10);border-radius:2px;padding:9px 12px;font-size:13px;outline:none;
+    transition:border-color .2s,box-shadow .2s;
+  }
+  #aiReq:focus{border-color:rgba(143,208,245,.45);box-shadow:0 0 0 1px rgba(143,208,245,.10)}
+  #aiReq::placeholder{color:rgba(255,255,255,.25)}
+  #aiCodeWrap{flex:1;min-height:100px;overflow:auto;background:#07090f;border:1px solid rgba(255,255,255,.05);border-radius:2px;position:relative}
+  #aiHl{
+    margin:0;padding:12px 14px;font:13px/1.65 "SF Mono",Menlo,Consolas,monospace;
+    white-space:pre;user-select:text;-webkit-user-select:text;cursor:text;min-height:100%;
+  }
+  #aiEmpty{color:rgba(255,255,255,.28);font-size:12px;padding:4px 2px;letter-spacing:.06em}
+  #aiInfo{flex:none;min-height:18px;font-size:11.5px;color:rgba(255,255,255,.38);letter-spacing:.10em}
+  #aiInfo.ok{color:#b5edd0}
+  #aiInfo.bad{color:#ffb4b8}
+  /* ---------- 提示 ---------- */
+  .toast{
+    position:fixed;right:18px;bottom:18px;z-index:50;padding:11px 18px;border-radius:2px;
+    font-size:12px;background:rgba(10,13,20,.96);border:1px solid rgba(255,255,255,.12);color:var(--txt);
+    opacity:0;transform:translateY(8px);transition:all .25s;pointer-events:none;max-width:340px;
+    letter-spacing:.08em;box-shadow:0 14px 40px rgba(0,0,0,.5);
+  }
+  .toast.show{opacity:1;transform:translateY(0)}
+  .toast.ok{border-color:rgba(127,216,168,.45);color:#b5edd0}
+  .toast.bad{border-color:rgba(240,113,120,.45);color:#ffb4b8}
+  /* ---------- 退出按钮 / 保存按钮 ---------- */
+  #btnExit{
+    width:32px;height:32px;border-radius:2px;border:1px solid rgba(255,255,255,.14);
+    background:transparent;color:rgba(255,255,255,.50);cursor:pointer;font-size:15px;line-height:1;
+    display:flex;align-items:center;justify-content:center;padding:0;
+    transition:color .2s,border-color .2s,box-shadow .2s;
+  }
+  #btnExit:hover{color:#ff9aa0;border-color:rgba(240,113,120,.6);box-shadow:0 0 14px rgba(240,113,120,.08)}
+  #btnSave.dirty{border-color:rgba(230,180,80,.5);color:#f2c76a;box-shadow:0 0 14px rgba(230,180,80,.06)}
+  #btnSave.dirty::after{
+    content:'';display:inline-block;width:5px;height:5px;border-radius:50%;
+    background:var(--amber);margin-left:9px;vertical-align:1px;
+    box-shadow:0 0 8px rgba(230,180,80,.8);
+  }
+  /* ---------- 退出确认框 ---------- */
+  #exitModal{
+    position:fixed;inset:0;z-index:120;background:rgba(2,4,10,.55);
+    backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;
+  }
+  #exitModal[hidden]{display:none}
+  .em-box{
+    width:min(400px,88vw);background:rgba(11,14,22,.98);border:1px solid rgba(255,255,255,.10);
+    border-radius:2px;padding:34px 38px;box-shadow:0 30px 80px rgba(0,0,0,.6);
+    animation:emPop .3s ease;position:relative;
+  }
+  .em-box::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:1px;pointer-events:none;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);
+  }
+  @keyframes emPop{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+  .em-title{font-size:17px;font-weight:300;letter-spacing:.20em}
+  .em-sub{font-size:12px;color:rgba(255,255,255,.40);margin:10px 0 26px;letter-spacing:.08em;line-height:1.7}
+  .em-btns{display:flex;gap:12px}
+  .em-btns .btn{flex:1;padding:10px 0}
+  /* ---------- 开场电影界面 ---------- */
+  #intro{position:fixed;inset:0;z-index:100;background:#000;transition:opacity .9s ease}
+  #intro::before{
+    content:'';position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(215deg, rgba(255,255,255,.15) 0%, rgba(255,255,255,.05) 42%, transparent 70%);
+  }
+  #intro.gone{opacity:0;pointer-events:none}
+  #intro.gone *{pointer-events:none!important} /* 安全网：gone 状态下任何子元素都不可点（防隐 form 按钮挡住编程界面） */
+  #introVideo{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  }
+  #introLoading{
+    position:absolute;left:50%;bottom:34px;transform:translateX(-50%);
+    color:rgba(255,255,255,.6);font-size:11px;letter-spacing:.4em;text-indent:.4em;
+    pointer-events:none;transition:opacity .6s ease;
+    animation:introPulse 1.6s ease-in-out infinite;
+  }
+  #introLoading.off{opacity:0;animation:none}
+  @keyframes introPulse{0%,100%{opacity:.35}50%{opacity:.85}}
+  #introEnter{
+    position:absolute;top:0;right:0;bottom:0;width:50vw;
+    transform:translateX(30px);
+    opacity:0;transition:opacity .8s ease .12s,transform .8s ease .12s;
+    pointer-events:none;user-select:none;
+  }
+  #introEnter::before{ /* 梯形挡板：斜边从屏幕顶部靠右斜到屏幕底部靠左，右侧贴屏幕右缘 */
+    content:'';position:absolute;inset:0;z-index:-1;
+    background:linear-gradient(155deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,.03) 55%, rgba(255,255,255,0) 100%);
+    backdrop-filter:blur(4px) saturate(1.08);
+    -webkit-backdrop-filter:blur(4px) saturate(1.08);
+    clip-path:polygon(34% 0, 100% 0, 100% 100%, 6% 100%);
+  }
+  #introEnter::after{ /* 斜边高亮细线（贴合左侧斜边） */
+    content:'';position:absolute;inset:0;z-index:-1;
+    background:linear-gradient(180deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,.22) 60%, rgba(255,255,255,.04) 100%);
+    clip-path:polygon(34% 0, calc(34% + 1.5px) 0, calc(6% + 1.5px) 100%, 6% 100%);
+  }
+  #intro.blurred #introEnter{opacity:1;transform:translateX(0);pointer-events:auto}
+  .ie-word{
+    position:absolute;left:17%;top:50%;transform:translateY(-50%);
+    font-family:-apple-system,"Helvetica Neue","PingFang SC",sans-serif;
+    font-size:clamp(58px,7.8vw,112px);font-weight:200;color:#fff;
+    letter-spacing:.46em;line-height:1;cursor:pointer;
+    text-shadow:0 0 34px rgba(255,255,255,.16),0 2px 30px rgba(0,0,0,.45);
+    transition:letter-spacing .45s ease,text-shadow .45s ease;
+    white-space:nowrap;
+  }
+  .ie-word:hover{letter-spacing:.6em;text-shadow:0 0 46px rgba(255,255,255,.26),0 2px 30px rgba(0,0,0,.45)}
+  /* ---------- 开场：左上角三角按钮（从外向内浮出） ---------- */
+  #introMenuBtn{
+    position:absolute;left:46px;top:46px;width:22px;height:22px;
+    background:none;border:0;cursor:pointer;padding:0;line-height:0;
+    opacity:0;transform:translate(-30px,-30px);
+    transition:opacity .7s ease .35s,transform .7s ease .35s;
+    pointer-events:none;user-select:none;
+    filter:drop-shadow(0 0 7px rgba(255,255,255,.35));
+  }
+  #intro.blurred #introMenuBtn{opacity:1;transform:none;pointer-events:auto}
+  #introMenuBtn svg{width:100%;height:100%;display:block;transition:transform .3s ease}
+  #introMenuBtn:hover svg{transform:scale(1.15)}
+  #introMenuBtn path{
+    fill:none;stroke:rgba(255,255,255,.9);stroke-width:1.3;stroke-linejoin:round;
+    transition:fill .3s ease,stroke .3s ease;
+  }
+  #introMenuBtn:hover path{fill:rgba(255,255,255,.14);stroke:#fff}
+  #intro.menuOpen #introMenuBtn path{fill:rgba(255,255,255,.92);stroke:#fff}
+  /* ---------- 开场：队伍视频菜单（浮字，无背景） ---------- */
+  #introMenu{
+    position:absolute;left:46px;top:118px;user-select:none;
+    opacity:0;transform:translateX(-34px);pointer-events:none;
+    transition:opacity .55s ease,transform .55s ease,filter .4s ease;
+  }
+  #intro.blurred.menuOpen #introMenu{opacity:1;transform:none;pointer-events:auto}
+  #intro.confirming #introMenu{filter:blur(9px) brightness(.55);pointer-events:none}
+  .im-kicker{
+    font-size:11px;letter-spacing:.55em;color:rgba(255,255,255,.42);
+    text-transform:uppercase;margin-bottom:18px;font-weight:500;
+    text-shadow:0 2px 12px rgba(0,0,0,.6);
+  }
+  .im-item{
+    font-size:27px;font-weight:200;color:rgba(255,255,255,.6);
+    letter-spacing:.24em;line-height:1;cursor:pointer;margin-bottom:16px;
+    text-shadow:0 2px 20px rgba(0,0,0,.55);
+    transition:letter-spacing .35s ease,color .3s ease;
+    display:flex;align-items:baseline;gap:12px;
+  }
+  .im-item:hover{letter-spacing:.3em;color:#fff}
+  .im-item.now{color:#fff;cursor:default}
+  .im-item.now:hover{letter-spacing:.24em}
+  .im-item.soon{color:rgba(255,255,255,.26);cursor:default}
+  .im-item.soon:hover{letter-spacing:.24em;color:rgba(255,255,255,.26)}
+  .im-tag{
+    flex:none;font-size:9.5px;letter-spacing:.4em;color:rgba(255,255,255,.55);
+    border:1px solid rgba(255,255,255,.3);padding:3px 5px 3px 9px;
+    transform:translateY(-2px);text-shadow:none;
+  }
+  .im-tag.dim{border-color:rgba(255,255,255,.14);color:rgba(255,255,255,.28)}
+  /* ---------- 开场：切换确认（浮字，无背景） ---------- */
+  #introConfirm{
+    position:absolute;left:46px;top:118px;user-select:none;
+    opacity:0;transform:translateX(-26px);pointer-events:none;
+    transition:opacity .5s ease,transform .5s ease;
+  }
+  #intro.blurred.confirming #introConfirm{opacity:1;transform:none;pointer-events:auto}
+  .ic-q{
+    font-size:15px;font-weight:200;color:rgba(255,255,255,.85);letter-spacing:.22em;
+    margin-bottom:26px;text-shadow:0 2px 14px rgba(0,0,0,.55);
+  }
+  .ic-q b{font-weight:300;color:#fff;letter-spacing:.28em}
+  .ic-btns{display:flex;gap:14px}
+  .ic-btn{
+    background:none;border:1px solid rgba(255,255,255,.3);color:rgba(255,255,255,.78);
+    font:200 12px/1 -apple-system,"Helvetica Neue","PingFang SC",sans-serif;
+    letter-spacing:.32em;padding:11px 16px 11px 20px;cursor:pointer;border-radius:2px;
+    transition:border-color .25s,color .25s,background .25s;
+    text-shadow:0 1px 10px rgba(0,0,0,.4);
+  }
+  .ic-btn:hover{border-color:rgba(255,255,255,.9);color:#fff}
+  #icSwitch{border-color:rgba(255,255,255,.55);color:#fff}
+  #icSwitch:hover{background:rgba(255,255,255,.14)}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.10);border-radius:4px}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.18)}
+  ::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+<header>
+  <button id="btnExit" title="退出到开场界面">⏻</button>
+  <div class="logo">VEX V5 编程教学</div>
+  <div class="merit-badge" id="meritBadge" title="训练积分">
+    <span class="mb-icon">🥇</span>
+    <span class="mb-val" id="meritVal">0.00</span>
+    <span class="mb-label">merits</span>
+  </div>
+  <div class="sp"></div>
+  <button class="btn primary" id="btnRun">运行</button>
+  <button class="btn danger" id="btnStop">停止</button>
+  <button class="btn reset" id="btnReset" hidden title="复位机器人到起点">复位</button>
+  <div class="hb-center">
+    <div class="level-select" id="levelWrap" title="选择训练关卡">
+      <button class="level-btn" id="levelBtn" type="button">关卡 1</button>
+      <div class="level-menu" id="levelMenu" hidden>
+        <div class="level-item active" data-lv="1">关卡 1 · 前进后退转向</div>
+      </div>
+    </div>
+    <button class="btn practice" id="btnPractice">训练</button>
+    <button class="btn" id="btnSave" title="保存代码">保存</button>
+  </div>
+</header>
+<main>
+  <section id="editorPanel">
+    <div id="editorWrap">
+      <div id="gutter"><div id="gutInner"></div></div>
+      <div id="codeWrap">
+        <pre id="hl" aria-hidden="true"></pre>
+        <textarea id="code" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" wrap="off"></textarea>
+      </div>
+    </div>
+      <div id="errPanel">
+      <div id="errHead"><b>问题</b><span id="errCount">0 错误 · 0 提示</span><span class="hint">点击问题可跳转到代码</span></div>
+      <div id="errList"></div>
+    </div>
+    <button id="btnAI" title="展开 / 收起 AI 代码生成"><span class="arr">»</span></button>
+    <div id="practiceBanner">Practice!</div>
+    <div id="congratsWrap">
+      <div id="congratsBanner">🎉Congrats！！</div>
+      <div id="meritToast">+0.00 merits🥇</div>
+    </div>
+  </section>
+  <section id="scenePanel">
+    <div id="sonarHud"><span class="sh-label">超声波</span><span class="sh-value">--</span><span class="sh-unit">mm</span><span class="sh-bar"><i></i></span></div>
+    <div id="console"></div>
+    <div id="sceneVeil" hidden></div>
+    <section id="aiPanel" hidden>
+    <div id="aiHead">
+      <button class="btn primary" id="btnAiTest">▶ 一键测试</button>
+      <button class="btn" id="btnAiCopyAll">复制全部</button>
+      <span class="sp"></span>
+      <button id="aiClose" title="收起">×</button>
+    </div>
+    <div id="aiCodeWrap"><pre id="aiHl"><span id="aiEmpty">生成的代码会显示在这里（生成后可一键测试 / 复制）</span></pre></div>
+    <div id="aiInputWrap">
+      <textarea id="aiReq" placeholder="用一句话描述任务，例如：&#10;前进24英寸，右转90度，抬臂，开爪，等1秒，后退12英寸，打印"完成""></textarea>
+      <div id="aiBottomRow">
+        <button class="btn primary" id="btnGen">生成代码</button>
+        <button class="btn" id="btnAiCopySel">复制选中</button>
+      </div>
+      <div id="aiInfo"></div>
+    </div>
+  </section>
+  </section>
+</main>
+<!-- 开场电影界面 -->
+<div id="intro">
+  <video id="introVideo" src="intro-16610a.mp4" poster="intro-16610a.jpg" playsinline preload="auto" muted autoplay></video>
+  <div id="introLoading">LOADING</div>
+  <div id="introEnter">
+    <div class="ie-word" id="btnEnter" title="进入编程界面">Enter</div>
+  </div>
+  <button id="introMenuBtn" title="队伍视频列表"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3.5 L20 12 L5 20.5 Z"></path></svg></button>
+  <nav id="introMenu">
+    <div class="im-kicker">Teams</div>
+    <div id="introMenuList"></div>
+  </nav>
+  <div id="introConfirm">
+    <div class="ic-q">切换至 <b id="icTeam"></b> ?</div>
+    <div class="ic-btns">
+      <button class="ic-btn" id="icCancel">Cancel</button>
+      <button class="ic-btn" id="icSwitch">Switch</button>
+    </div>
+  </div>
+</div>
+
+<!-- 退出确认框 -->
+<div id="exitModal" hidden>
+  <div class="em-box">
+    <div class="em-title">项目尚未保存</div>
+    <div class="em-sub">当前代码有未保存的修改，直接退出将丢失这些改动</div>
+    <div class="em-btns">
+      <button class="btn danger" id="btnExitNoSave">不保存直接退出</button>
+      <button class="btn primary" id="btnExitSave">保存并退出</button>
+    </div>
+  </div>
+</div>
+
+<script src="three.min.js"></script>
+<script src="linter.js"></script>
+<script src="ai.js"></script>
+<script src="scene.js"></script>
+<script src="sim.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
